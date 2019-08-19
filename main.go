@@ -9,12 +9,17 @@ import (
 )
 
 const (
-	PiFile = "10000.txt"
-	LineLength = 32
-	NumLines   = 32
-	CubeSize   = 5.0
-	BaseHeight = 5.0
+	PiFile           = "10000.txt"
+	LineLength       = 32
+	NumLines         = 32
+	CubeSize         = 5.0
+	BaseHeight       = 5.0
+
+	// exaggerate the height of the cubes by multiplying them by this number.
 	HeightMultiplier = 2
+
+	// Oversize the blocks slightly to allow them to be merged together more cleanly.
+	OverlapFactor = 1.2 //e.g. 1.2 = 120%
 )
 
 func main() {
@@ -27,7 +32,6 @@ func main() {
 		if len(grid) > NumLines {
 			break
 		}
-		// add first line if needed
 		if len(grid) == 0 || len(grid[len(grid)-1]) == LineLength {
 			grid = append(grid, []sdf.SDF3{})
 		}
@@ -39,13 +43,21 @@ func main() {
 		height = height * HeightMultiplier
 
 		// create the cube
-		c := sdf.Box3D(sdf.V3{X: CubeSize, Y: CubeSize, Z: height}, 0)
+		c := sdf.Box3D(
+			sdf.V3{
+				X: CubeSize * OverlapFactor,
+				Y: CubeSize * OverlapFactor,
+				// make the cubes extend half way into the base to make the union cleaner.
+				Z: height + (BaseHeight / 2),
+			},
+			0,
+		)
 		c = sdf.Transform3D(
 			c,
 			sdf.Translate3d(
 				sdf.V3{
-					X: CubeSize * float64(len(grid[len(grid)-1])) + CubeSize / 2,
-					Y: CubeSize * float64(len(grid)-1) + CubeSize / 2,
+					X: CubeSize*float64(len(grid[len(grid)-1])) + (CubeSize / 2),
+					Y: CubeSize*float64(len(grid)-1) + (CubeSize / 2),
 					Z: 0 - (BaseHeight - height/2) + BaseHeight,
 				},
 			),
@@ -54,13 +66,21 @@ func main() {
 	}
 
 	//create a base
-	base := sdf.Box3D(sdf.V3{X: CubeSize * LineLength, Y: CubeSize * NumLines, Z: BaseHeight}, 0)
+	base := sdf.Box3D(
+		sdf.V3{
+			// base also needs to be oversized
+			X: (CubeSize * OverlapFactor) * LineLength,
+			Y: (CubeSize * OverlapFactor) * NumLines,
+			Z: BaseHeight,
+		},
+		0,
+	)
 	base = sdf.Transform3D(
 		base,
 		sdf.Translate3d(sdf.V3{
 			X: CubeSize * float64(LineLength) / 2,
 			Y: CubeSize * float64(NumLines) / 2,
-			Z: 0 - BaseHeight/2,
+			Z: 0 - (BaseHeight / 2),
 		}),
 	)
 
@@ -69,7 +89,7 @@ func main() {
 		base = sdf.Union3D(base, sdf.Union3D(line...))
 	}
 
-	sdf.RenderSTLSlow(base, 200, "pi.stl")
+	sdf.RenderSTL(base, 250, "pi.stl")
 }
 
 func mustGetPi() []int {
