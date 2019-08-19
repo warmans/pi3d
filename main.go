@@ -1,15 +1,17 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"github.com/deadsy/sdfx/sdf"
+	"io"
 	"io/ioutil"
 	"os"
 	"strconv"
+	"strings"
 )
 
 const (
-	PiFile           = "10000.txt"
 	LineLength       = 32
 	NumLines         = 32
 	CubeSize         = 5.0
@@ -22,11 +24,29 @@ const (
 	OverlapFactor = 1.2 //e.g. 1.2 = 120%
 )
 
+var (
+	inputType = flag.String("input-type", "decimal", "Identifies what the input is. Can be decimal or text")
+)
+
+func init() {
+	flag.Parse()
+}
+
 func main() {
+	var input []int
+	switch *inputType {
+	case "decimal":
+		input = mustGetNumbersFromDecimalNumber(os.Stdin)
+	case "text":
+		input = mustGetNumbersFromLetters(os.Stdin)
+	default:
+		panic(fmt.Sprintf("unknown input type: %s", *inputType))
+	}
+	render(input)
+}
 
+func render(heights []int) {
 	grid := make([][]sdf.SDF3, 0)
-
-	pi := mustGetPi()
 	for i := 0; i < LineLength*NumLines; i++ {
 
 		if len(grid) > NumLines {
@@ -37,8 +57,8 @@ func main() {
 		}
 
 		var height = 0.0
-		if len(pi) > i {
-			height = float64(pi[i])
+		if len(heights) > i {
+			height = float64(heights[i])
 		}
 		height = height * HeightMultiplier
 
@@ -89,26 +109,21 @@ func main() {
 		base = sdf.Union3D(base, sdf.Union3D(line...))
 	}
 
-	sdf.RenderSTL(base, 250, "pi.stl")
+	sdf.RenderSTL(base, 250, "result.stl")
 }
 
-func mustGetPi() []int {
-	f, err := os.Open(PiFile)
-	if err != nil {
-		panic(err)
-	}
-	defer f.Close()
+func mustGetNumbersFromDecimalNumber(f io.Reader) []int {
 
+	// todo: Should just read as much as needed rather than everything.
 	b, err := ioutil.ReadAll(f)
 	if err != nil {
 		panic(err)
 	}
 
-	ints := []int{}
+	numbers := []int{}
 
-	str := fmt.Sprintf("%s", b)
 	beforeDecimalPoint := true
-	for _, char := range str {
+	for _, char := range string(b) {
 		if string(char) == "." {
 			beforeDecimalPoint = false
 			continue
@@ -118,10 +133,34 @@ func mustGetPi() []int {
 			panic(err)
 		}
 		if beforeDecimalPoint {
-			ints = append(ints, intVal*10)
+			numbers = append(numbers, intVal*10)
 		} else {
-			ints = append(ints, intVal)
+			numbers = append(numbers, intVal)
 		}
 	}
-	return ints
+	return numbers
+}
+
+func mustGetNumbersFromLetters(f io.Reader) []int {
+
+	// todo: Should just read as much as needed rather than everything.
+	b, err := ioutil.ReadAll(f)
+	if err != nil {
+		panic(err)
+	}
+
+	numbers := make([]int, 0)
+	charLookup := map[string]int{"a":1, "b":2, "c":3, "d":4, "e":5, "f":6, "g":7, "h":8, "i":9, "j":10, "k":11, "l":12, "m":13, "n":14, "o":15, "p": 16, "q": 17, "r":18, "s":19, "t":20, "u":21, "v":22, "w":23, "x":24, "y":25, "z":26}
+	for _, c := range string(b) {
+		char := strings.ToLower(string(c))
+		charNum, ok := charLookup[char]
+		if !ok {
+			if char == " " {
+				numbers = append(numbers, 0)
+			}
+			continue
+		}
+		numbers = append(numbers, charNum)
+	}
+	return numbers
 }
