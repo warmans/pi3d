@@ -12,10 +12,10 @@ import (
 )
 
 const (
-	LineLength       = 32
-	NumLines         = 32
-	CubeSize         = 5.0
-	BaseHeight       = 5.0
+	LineLength = 32
+	NumLines   = 32
+	CubeSize   = 5.0
+	BaseHeight = 5.0
 
 	// exaggerate the height of the cubes by multiplying them by this number.
 	HeightMultiplier = 2
@@ -26,6 +26,7 @@ const (
 
 var (
 	inputType = flag.String("input-type", "decimal", "Identifies what the input is. Can be decimal or text")
+	shape     = flag.String("shapes-", "square", "What shape to use for the extrusions (circle or square)")
 )
 
 func init() {
@@ -42,10 +43,10 @@ func main() {
 	default:
 		panic(fmt.Sprintf("unknown input type: %s", *inputType))
 	}
-	render(input)
+	render(input, *shape)
 }
 
-func render(heights []int) {
+func render(heights []int, shape string) {
 	grid := make([][]sdf.SDF3, 0)
 	for i := 0; i < LineLength*NumLines; i++ {
 
@@ -62,15 +63,27 @@ func render(heights []int) {
 		}
 		height = height * HeightMultiplier
 
-		// create the cube
-		c := sdf.Box3D(
-			sdf.V3{
-				X: CubeSize * OverlapFactor,
-				Y: CubeSize * OverlapFactor,
-				// make the cubes extend half way into the base to make the union cleaner.
-				Z: height + (BaseHeight / 2),
-			},
-			0,
+		var s sdf.SDF2
+		switch shape {
+		case "square":
+			// create the cube
+			s = sdf.Box2D(
+				sdf.V2{
+					X: CubeSize * OverlapFactor,
+					Y: CubeSize * OverlapFactor,
+				},
+				0,
+			)
+		case "circle":
+			// create the cube
+			s = sdf.Circle2D((CubeSize / 2) * OverlapFactor)
+		default:
+			panic(fmt.Sprintf("unknown shape: %s", shape))
+		}
+		c := sdf.Extrude3D(
+			s,
+			// make the cubes extend half way into the base to make the union cleaner.
+			height+(BaseHeight/2),
 		)
 		c = sdf.Transform3D(
 			c,
@@ -109,7 +122,7 @@ func render(heights []int) {
 		base = sdf.Union3D(base, sdf.Union3D(line...))
 	}
 
-	sdf.RenderSTL(base, 250, "result.stl")
+	sdf.RenderSTL(base, 200, "result.stl")
 }
 
 func mustGetNumbersFromDecimalNumber(f io.Reader) []int {
@@ -150,7 +163,7 @@ func mustGetNumbersFromLetters(f io.Reader) []int {
 	}
 
 	numbers := make([]int, 0)
-	charLookup := map[string]int{"a":1, "b":2, "c":3, "d":4, "e":5, "f":6, "g":7, "h":8, "i":9, "j":10, "k":11, "l":12, "m":13, "n":14, "o":15, "p": 16, "q": 17, "r":18, "s":19, "t":20, "u":21, "v":22, "w":23, "x":24, "y":25, "z":26}
+	charLookup := map[string]int{"a": 1, "b": 2, "c": 3, "d": 4, "e": 5, "f": 6, "g": 7, "h": 8, "i": 9, "j": 10, "k": 11, "l": 12, "m": 13, "n": 14, "o": 15, "p": 16, "q": 17, "r": 18, "s": 19, "t": 20, "u": 21, "v": 22, "w": 23, "x": 24, "y": 25, "z": 26}
 	for _, c := range string(b) {
 		char := strings.ToLower(string(c))
 		charNum, ok := charLookup[char]
